@@ -1,0 +1,40 @@
+name: stipendariet
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the database file to persist data
+      - backend_data:/app/data
+    restart: unless-stopped
+    networks:
+      - stipendariet
+
+  frontend:
+    build:
+      context: ../stipendium-assistenten-frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - stipendariet
+
+networks:
+  stipendariet:
+    driver: bridge
+    name: stipendariet
+
+volumes:
+  backend_data:
+    driver: local
+    name: stipendariet-backend-data
