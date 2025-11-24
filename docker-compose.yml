@@ -4,30 +4,74 @@ services:
   backend:
     build:
       context: ../backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: backend
     ports:
       - "8000:8000"
     volumes:
       # Mount the database file to persist data
       - backend_data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
     restart: unless-stopped
     networks:
       - stipendariet
+    develop:
+      watch:
+        # Watch Python source files and sync them (uvicorn --reload will handle restarts)
+        - action: sync
+          path: ../backend
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - "*.pyo"
+            - .git/
+            - .pytest_cache/
+            - stipendariet.db
+            - data/
+            - Dockerfile
+            - Dockerfile.dev
+        # Rebuild container when requirements.txt changes
+        - action: rebuild
+          path: ../backend/requirements.txt
 
   frontend:
     build:
       context: ../stipendium-assistenten-frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: frontend
     ports:
       - "8080:8080"
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      - VITE_API_URL=http://localhost:8000
     restart: unless-stopped
     networks:
       - stipendariet
+    develop:
+      watch:
+        # Sync source files (Vite dev server will handle hot reload)
+        - action: sync
+          path: ../stipendium-assistenten-frontend/src
+          target: /app/src
+        - action: sync
+          path: ../stipendium-assistenten-frontend/public
+          target: /app/public
+        # Rebuild when package files change
+        - action: rebuild
+          path: ../stipendium-assistenten-frontend/package.json
+        - action: rebuild
+          path: ../stipendium-assistenten-frontend/package-lock.json
+        # Rebuild when config files change
+        - action: rebuild
+          path: ../stipendium-assistenten-frontend/vite.config.ts
+        - action: rebuild
+          path: ../stipendium-assistenten-frontend/tailwind.config.ts
+        - action: rebuild
+          path: ../stipendium-assistenten-frontend/tsconfig.json
 
 networks:
   stipendariet:

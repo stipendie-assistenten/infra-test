@@ -1,0 +1,20 @@
+# Production override for docker-compose.yml
+name: stipendariet
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=production
+
+  frontend:
+    build:
+      context: ../stipendium-assistenten-frontend
+      dockerfile: Dockerfile
+      target: production
+    environment:
+      - NODE_ENV=production
