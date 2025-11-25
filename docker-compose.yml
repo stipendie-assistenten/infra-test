@@ -1,21 +1,73 @@
 name: stipendariet
 
 services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: stipendariet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - stipendariet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:1.3.5
+    container_name: chroma
+    environment:
+      - CHROMA_DB_IMPL=duckdb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+    networks:
+      - stipendariet
+    healthcheck:
+      test: [ "CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile.dev
     container_name: backend
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       # Mount the database file to persist data
       - backend_data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/stipendariet
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=stipendariet
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
     restart: unless-stopped
     networks:
       - stipendariet
+    depends_on:
+      chroma:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     develop:
       watch:
         # Watch Python source files and sync them (uvicorn --reload will handle restarts)
@@ -42,12 +94,12 @@ services:
       dockerfile: Dockerfile.dev
     container_name: frontend
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://backend:8000
     restart: unless-stopped
     networks:
       - stipendariet
@@ -82,3 +134,5 @@ volumes:
   backend_data:
     driver: local
     name: stipendariet-backend-data
+  postgres_data:
+  chroma_data:
