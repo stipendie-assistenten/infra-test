@@ -1,1 +1,3 @@
 data/postgres/*
+data/chroma/*
+data/backend/*

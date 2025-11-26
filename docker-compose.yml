@@ -30,7 +30,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - chroma_data:/chroma/chroma
+      - ./data/chroma:/chroma/chroma
     restart: unless-stopped
     networks:
       - stipendariet
@@ -43,13 +43,13 @@ services:
   backend:
     build:
       context: ../backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: backend
-    ports:
-      - "8080:8000"
+    expose:
+      - "8000"
     volumes:
       # Mount the database file to persist data
-      - backend_data:/app/data
+      - ./data/backend:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/stipendariet
@@ -91,15 +91,17 @@ services:
   frontend:
     build:
       context: ../stipendium-assistenten-frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
     container_name: frontend
     ports:
-      - "8081:8080"
+      - "8080:8080"
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      - VITE_API_URL=http://backend:8000
+      - VITE_API_URL=/api
     restart: unless-stopped
     networks:
       - stipendariet
@@ -125,14 +127,9 @@ services:
         - action: rebuild
           path: ../stipendium-assistenten-frontend/tsconfig.json
 
+
 networks:
   stipendariet:
     driver: bridge
     name: stipendariet
 
-volumes:
-  backend_data:
-    driver: local
-    name: stipendariet-backend-data
-  postgres_data:
-  chroma_data:
